@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Vogelmelder</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
+
+:root {
+  --linen:   #f4efe4;
+  --cream:   #ede5d4;
+  --sage:    #7a9e7e;
+  --sage-d:  #4d7252;
+  --sage-l:  #b8d0b8;
+  --sky:     #9bbccc;
+  --sky-d:   #5a8eaa;
+  --bark:    #6b5540;
+  --bark-l:  #a08060;
+  --moss:    #3d5e3a;
+  --sand:    #cfc0a0;
+  --shadow:  rgba(80,60,30,0.13);
+  --card-bg: rgba(255,252,245,0.82);
+  --border:  rgba(100,140,100,0.22);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: var(--linen);
+  color: var(--bark);
+  font-family: 'Jost', sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 55% at 10% 5%,  rgba(122,158,126,0.16) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 55% at 92% 85%, rgba(155,188,204,0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 45% at 55% 35%, rgba(207,192,160,0.13) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 38% at 25% 92%, rgba(122,158,126,0.11) 0%, transparent 65%);
+}
+
+.wrap {
+  position: relative; z-index: 1;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 18px 15px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Header ── */
+header { text-align: center; padding: 6px 0 2px; }
+
+header h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: 2.5rem;
+  color: var(--moss);
+  letter-spacing: 3px;
+  line-height: 1.05;
+}
+
+header h1 em {
+  display: block;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--bark-l);
+  letter-spacing: 4px;
+  margin-top: 3px;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.branch-deco {
+  display: block; margin: 8px auto 0;
+  width: 130px; height: 30px;
+  opacity: 0.3;
+}
+
+/* ── Kaart ── */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 15px;
+  box-shadow: 0 2px 14px var(--shadow);
+}
+
+.card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--sage-d);
+  margin-bottom: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Camera ── */
+.cam-wrap {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #b8c4b4;
+  aspect-ratio: 4/3;
+  box-shadow: 0 2px 18px var(--shadow);
+}
+
+#video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#canvas { display: none; }
+
+.motion-ring {
+  position: absolute; inset: 0;
+  border-radius: 16px;
+  border: 3px solid transparent;
+  pointer-events: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.motion-ring.active {
+  border-color: var(--sage);
+  box-shadow: inset 0 0 28px rgba(122,158,126,0.25), 0 0 16px rgba(122,158,126,0.22);
+}
+
+.cam-badge {
+  position: absolute;
+  top: 10px; right: 10px;
+  background: rgba(255,252,245,0.78);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.7rem;
+  color: var(--bark);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(4px);
+}
+
+/* Zingend geluidsgolf-icoontje */
+.ripple-wrap {
+  position: absolute;
+  bottom: 14px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 5px;
+  align-items: flex-end;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.ripple-wrap.vis { opacity: 1; }
+.rbar {
+  width: 4px;
+  background: rgba(255,252,245,0.8);
+  border-radius: 2px;
+  animation: rb 0.8s ease-in-out infinite alternate;
+}
+.rbar:nth-child(1){height:7px; animation-delay:0s}
+.rbar:nth-child(2){height:16px;animation-delay:.15s}
+.rbar:nth-child(3){height:11px;animation-delay:.3s}
+.rbar:nth-child(4){height:19px;animation-delay:.1s}
+.rbar:nth-child(5){height:8px; animation-delay:.25s}
+@keyframes rb { from{transform:scaleY(.35);opacity:.4} to{transform:scaleY(1);opacity:1} }
+
+/* ── Status ── */
+.status-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 8px var(--shadow);
+}
+
+.sdot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--sand);
+  flex-shrink: 0;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.sdot.watch  { background: var(--sage);  box-shadow: 0 0 7px rgba(122,158,126,.7); }
+.sdot.motion { background: #c8a060; box-shadow: 0 0 8px rgba(200,160,96,.85); animation: bl .4s infinite alternate; }
+.sdot.sing   { background: var(--sky);   box-shadow: 0 0 8px rgba(155,188,204,.9); animation: bl .6s infinite alternate; }
+@keyframes bl { from{opacity:1} to{opacity:.3} }
+
+#stxt { font-size: 0.82rem; color: var(--bark-l); flex: 1; }
+
+/* ── Vogel slots ── */
+.slots { display: flex; flex-direction: column; gap: 9px; }
+
+.slot {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: rgba(255,252,245,0.55);
+  overflow: hidden;
+  transition: border-color .2s, box-shadow .2s;
+}
+.slot.sel {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 2px rgba(122,158,126,.16);
+}
+
+.slot-top {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.snum {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  font-size: 0.7rem;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--bark-l);
+  flex-shrink: 0;
+  transition: background .2s, color .2s;
+}
+.slot.sel .snum {
+  background: var(--sage); color: white; border-color: var(--sage-d);
+}
+
+.sname {
+  flex: 1;
+  font-size: 0.88rem;
+  color: var(--bark);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sname.empty { color: var(--sand); font-style: italic; font-size: 0.78rem; }
+
+.sacts { display: flex; gap: 5px; flex-shrink: 0; }
+
+.sbtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 0.7rem;
+  color: var(--bark-l);
+  cursor: pointer;
+  font-family: 'Jost', sans-serif;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.sbtn:active { background: var(--cream); }
+.sbtn.sel-btn {
+  border-color: var(--sage-l);
+  color: var(--sage-d);
+}
+.sbtn.sel-btn.active-sel {
+  background: var(--sage);
+  color: white;
+  border-color: var(--sage-d);
+}
+
+/* Uitklap detail */
+.sdetail {
+  display: none;
+  padding: 0 12px 12px;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+}
+.sdetail.open { display: flex; }
+
+.name-input {
+  width: 100%;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-family: 'Jost', sans-serif;
+  font-size: 0.84rem;
+  color: var(--bark);
+  outline: none;
+}
+.name-input:focus { border-color: var(--sage); }
+
+.file-lbl {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--cream);
+  border: 1px dashed var(--sage-l);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--sage-d);
+  transition: background .15s;
+}
+.file-lbl:active { background: var(--sage-l); }
+.file-lbl input { display: none; }
+
+.dur-badge {
+  font-size: 0.7rem;
+  color: var(--sage-d);
+  background: rgba(122,158,126,.1);
+  border-radius: 6px;
+  padding: 4px 9px;
+  align-self: flex-start;
+}
+
+/* ── Instellingen ── */
+.settings { display: flex; flex-direction: column; gap: 13px; }
+
+.slrow { display: flex; flex-direction: column; gap: 5px; }
+
+.sllbl {
+  display: flex; justify-content: space-between;
+  font-size: 0.77rem; color: var(--bark-l);
+}
+.sllbl strong { color: var(--sage-d); font-weight: 500; }
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%; height: 5px;
+  border-radius: 3px;
+  outline: none; cursor: pointer;
+  background: var(--cream);
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 21px; height: 21px;
+  border-radius: 50%;
+  background: var(--sage);
+  border: 2px solid white;
+  box-shadow: 0 1px 5px var(--shadow);
+}
+
+/* Duur modus toggle */
+.toggle-row { display: flex; gap: 6px; }
+.tglbtn {
+  flex: 1; padding: 7px 4px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--cream); color: var(--bark-l);
+  font-size: 0.72rem; font-family: 'Jost', sans-serif;
+  cursor: pointer; text-align: center;
+  transition: all .18s;
+}
+.tglbtn.on { background: var(--sage); color: white; border-color: var(--sage-d); }
+
+.info-note {
+  font-size: 0.72rem; color: var(--sage-d);
+  background: rgba(122,158,126,.09);
+  border-radius: 7px; padding: 6px 10px;
+  line-height: 1.5;
+}
+
+/* ── Voortgang ── */
+.prog-wrap { display: none; flex-direction: column; gap: 5px; }
+.prog-wrap.vis { display: flex; }
+.prog-meta {
+  display: flex; justify-content: space-between;
+  font-size: 0.74rem; color: var(--bark-l);
+}
+.prog-track {
+  height: 5px; background: var(--cream);
+  border-radius: 3px; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.prog-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--sage-l), var(--sage));
+  width: 0%; transition: width .5s linear;
+}
+
+/* ── Hoofd knop ── */
+#main-btn {
+  width: 100%; padding: 15px; border: none;
+  border-radius: 14px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem; letter-spacing: 2px;
+  cursor: pointer; transition: all .25s;
+}
+#main-btn.start {
+  background: linear-gradient(135deg, var(--sage), var(--sage-d));
+  color: white; box-shadow: 0 4px 16px rgba(77,114,82,.32);
+}
+#main-btn.stop {
+  background: linear-gradient(135deg, #c09080, #8a5040);
+  color: white; box-shadow: 0 4px 16px rgba(138,80,64,.28);
+}
+#main-btn:active { transform: scale(0.985); opacity: 0.88; }
+
+footer {
+  text-align: center; font-size: 0.62rem;
+  color: var(--sand); letter-spacing: 1px; padding-top: 2px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <h1>Vogelmelder <em>bewegingsdetectie</em></h1>
+    <svg class="branch-deco" viewBox="0 0 130 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 22 Q35 8 65 15 Q95 22 122 10" stroke="#4d7252" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M28 15 Q23 6 18 3"  stroke="#4d7252" stroke-width="1" stroke-linecap="round"/>
+      <path d="M50 13 Q47 5 43 2"  stroke="#4d7252" stroke-width="1" stroke-linecap="round"/>
+      <path d="M75 16 Q79 7 83 4"  stroke="#4d7252" stroke-width="1" stroke-linecap="round"/>
+      <path d="M100 13 Q105 5 109 3" stroke="#4d7252" stroke-width="1" stroke-linecap="round"/>
+      <circle cx="18"  cy="3"  r="1.8" fill="#7a9e7e" opacity="0.55"/>
+      <circle cx="43"  cy="2"  r="1.8" fill="#7a9e7e" opacity="0.55"/>
+      <circle cx="83"  cy="4"  r="1.8" fill="#7a9e7e" opacity="0.55"/>
+      <circle cx="109" cy="3"  r="1.8" fill="#7a9e7e" opacity="0.55"/>
+    </svg>
+  </header>
+
+  <!-- Camera -->
+  <div class="cam-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <div class="motion-ring" id="mring"></div>
+    <div class="ripple-wrap" id="ripple">
+      <div class="rbar"></div><div class="rbar"></div><div class="rbar"></div>
+      <div class="rbar"></div><div class="rbar"></div>
+    </div>
+    <div class="cam-badge" id="cam-badge" onclick="toggleCam()">📷 Voor</div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-row">
+    <div class="sdot" id="sdot"></div>
+    <div id="stxt">Laad een MP3 en kies een vogel om te starten</div>
+  </div>
+
+  <!-- Vogels -->
+  <div class="card">
+    <div class="card-title">🐦 Vogels <span style="font-style:italic;font-size:0.65rem;color:var(--bark-l);letter-spacing:1px">(max. 5)</span></div>
+    <div class="slots" id="slots-container"></div>
+  </div>
+
+  <!-- Instellingen -->
+  <div class="card">
+    <div class="card-title">⚙ Instellingen</div>
+    <div class="settings">
+
+      <!-- Gevoeligheid -->
+      <div class="slrow">
+        <div class="sllbl">
+          <span>Gevoeligheid beweging</span>
+          <strong id="lbl-sens">40</strong>
+        </div>
+        <input type="range" id="rng-sens" min="5" max="100" value="40"
+               oninput="updRange(this,'lbl-sens',false)">
+      </div>
+
+      <!-- Concertduur -->
+      <div class="slrow">
+        <div class="sllbl" style="margin-bottom:5px">
+          <span>Concertduur</span>
+          <strong id="lbl-dur">30 sec</strong>
+        </div>
+        <div class="toggle-row" style="margin-bottom:6px">
+          <button class="tglbtn on" id="dm-hand" onclick="setDurMode('manual')">Handmatig</button>
+          <button class="tglbtn"    id="dm-mp3"  onclick="setDurMode('mp3')">Volledige MP3</button>
+        </div>
+        <div id="dur-slider">
+          <input type="range" id="rng-dur" min="5" max="300" value="30"
+                 oninput="updRange(this,'lbl-dur',true)">
+        </div>
+        <div id="dur-note" class="info-note" style="display:none">
+          Het volledige MP3-fragment wordt afgespeeld, ongeacht de slider.
+          Duur wordt automatisch bepaald bij het laden van het bestand.
+        </div>
+      </div>
+
+      <!-- Wachttijd -->
+      <div class="slrow">
+        <div class="sllbl">
+          <span>Wachttijd na concert</span>
+          <strong id="lbl-cool">15 sec</strong>
+        </div>
+        <input type="range" id="rng-cool" min="3" max="180" value="15"
+               oninput="updRange(this,'lbl-cool',true)">
+      </div>
+
+      <!-- Camera -->
+      <div class="slrow">
+        <div class="sllbl" style="margin-bottom:5px"><span>Camera</span></div>
+        <div class="toggle-row">
+          <button class="tglbtn" id="cb-back"  onclick="setCam('environment')">↩ Achterkant</button>
+          <button class="tglbtn on" id="cb-front" onclick="setCam('user')">↪ Voorkant</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Concert voortgang -->
+  <div class="prog-wrap" id="prog-wrap">
+    <div class="prog-meta">
+      <span id="prog-name">–</span>
+      <span id="prog-time">–</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+  </div>
+
+  <!-- Start/Stop -->
+  <button id="main-btn" class="start" onclick="toggleDetect()">Begin met luisteren</button>
+
+  <footer>Volledig offline · geen internet vereist</footer>
+</div>
+
+<script>
+// ═══════════════════════════════
+//  CONSTANTEN & STAAT
+// ═══════════════════════════════
+var MAXSLOTS = 5;
+var running = false, singing = false, inCooldown = false;
+var facingMode = 'user';
+var durMode = 'manual';
+var stream = null, rafId = null, prevPx = null;
+var concertDurMs = 0, concertEnd = 0;
+var cTimer = null, pTimer = null;
+var selSlot = 0;
+var curAudio = null;
+
+// Slot data
+var slots = [];
+for (var i = 0; i < MAXSLOTS; i++) {
+  slots.push({ name: '', file: null, url: null, dur: null });
+}
+
+// ═══════════════════════════════
+//  INITIALISATIE
+// ═══════════════════════════════
+window.onload = function() {
+  buildAllSlots();
+  updRange(document.getElementById('rng-sens'), 'lbl-sens', false);
+  updRange(document.getElementById('rng-dur'),  'lbl-dur',  true);
+  updRange(document.getElementById('rng-cool'), 'lbl-cool', true);
+};
+
+// ═══════════════════════════════
+//  SLOTS OPBOUWEN
+// ═══════════════════════════════
+function buildAllSlots() {
+  var c = document.getElementById('slots-container');
+  c.innerHTML = '';
+  for (var i = 0; i < MAXSLOTS; i++) c.appendChild(buildSlot(i));
+  hiliteSlots();
+}
+
+function buildSlot(idx) {
+  var s = slots[idx];
+  var label = slotLabel(idx);
+  var isEmpty = !label;
+
+  var wrap = document.createElement('div');
+  wrap.className = 'slot' + (idx === selSlot ? ' sel' : '');
+  wrap.id = 'slot-' + idx;
+
+  // Top rij
+  var top = document.createElement('div');
+  top.className = 'slot-top';
+  top.onclick = (function(i){ return function(){ toggleDetail(i); }; })(idx);
+
+  var num = document.createElement('div');
+  num.className = 'snum';
+  num.textContent = idx + 1;
+
+  var nm = document.createElement('div');
+  nm.className = 'sname' + (isEmpty ? ' empty' : '');
+  nm.id = 'sname-' + idx;
+  nm.textContent = isEmpty ? 'Leeg — klik om in te stellen' : label;
+
+  var acts = document.createElement('div');
+  acts.className = 'sacts';
+  acts.id = 'sacts-' + idx;
+
+  if (s.url) {
+    var tb = document.createElement('button');
+    tb.className = 'sbtn';
+    tb.textContent = '▶ Test';
+    tb.onclick = (function(i){ return function(e){ e.stopPropagation(); testSlot(i); }; })(idx);
+    acts.appendChild(tb);
+  }
+
+  var sb = document.createElement('button');
+  sb.className = 'sbtn sel-btn' + (idx === selSlot ? ' active-sel' : '');
+  sb.id = 'selbtn-' + idx;
+  sb.textContent = idx === selSlot ? '✓ Actief' : 'Kies';
+  sb.onclick = (function(i){ return function(e){ e.stopPropagation(); chooseSel(i); }; })(idx);
+  acts.appendChild(sb);
+
+  top.appendChild(num);
+  top.appendChild(nm);
+  top.appendChild(acts);
+
+  // Detail
+  var det = document.createElement('div');
+  det.className = 'sdetail';
+  det.id = 'sdet-' + idx;
+
+  var ni = document.createElement('input');
+  ni.type = 'text';
+  ni.className = 'name-input';
+  ni.id = 'ninp-' + idx;
+  ni.placeholder = 'Naam vogel (optioneel)';
+  ni.value = s.name;
+  ni.oninput = (function(i){ return function(){ onNameInput(i, this.value); }; })(idx);
+
+  var fl = document.createElement('label');
+  fl.className = 'file-lbl';
+  fl.innerHTML = '🎵 <span id="flbl-' + idx + '">' + (s.url ? '✓ ' + (s.file ? s.file.name : 'geladen') : 'Kies MP3-bestand…') + '</span>';
+  var fi = document.createElement('input');
+  fi.type = 'file';
+  fi.accept = 'audio/*';
+  fi.onchange = (function(i){ return function(){ onFileChange(i, this); }; })(idx);
+  fl.appendChild(fi);
+
+  det.appendChild(ni);
+  det.appendChild(fl);
+
+  if (s.dur !== null) {
+    var db = document.createElement('div');
+    db.className = 'dur-badge';
+    db.id = 'durbadge-' + idx;
+    db.textContent = '⏱ Duur: ' + fmtSec(s.dur);
+    det.appendChild(db);
+  }
+
+  wrap.appendChild(top);
+  wrap.appendChild(det);
+  return wrap;
+}
+
+function toggleDetail(idx) {
+  for (var i = 0; i < MAXSLOTS; i++) {
+    var d = document.getElementById('sdet-' + i);
+    if (d) d.classList.toggle('open', i === idx && !d.classList.contains('open'));
+  }
+}
+
+function chooseSel(idx) {
+  selSlot = idx;
+  hiliteSlots();
+  var label = slotLabel(idx);
+  setStatus('', label ? 'Vogel geselecteerd: ' + label : 'Vogel ' + (idx+1) + ' geselecteerd (nog leeg)');
+}
+
+function hiliteSlots() {
+  for (var i = 0; i < MAXSLOTS; i++) {
+    var el = document.getElementById('slot-' + i);
+    if (el) el.className = 'slot' + (i === selSlot ? ' sel' : '');
+    var sb = document.getElementById('selbtn-' + i);
+    if (sb) {
+      sb.className = 'sbtn sel-btn' + (i === selSlot ? ' active-sel' : '');
+      sb.textContent = i === selSlot ? '✓ Actief' : 'Kies';
+    }
+  }
+}
+
+function onNameInput(idx, val) {
+  slots[idx].name = val.trim();
+  refreshSlotName(idx);
+}
+
+function onFileChange(idx, input) {
+  var file = input.files[0];
+  if (!file) return;
+  if (slots[idx].url) URL.revokeObjectURL(slots[idx].url);
+
+  var url = URL.createObjectURL(file);
+  slots[idx].file = file;
+  slots[idx].url  = url;
+  slots[idx].dur  = null;
+
+  // Auto naam van bestandsnaam als naam leeg
+  if (!slots[idx].name) {
+    var auto = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+    slots[idx].name = auto;
+    var ni = document.getElementById('ninp-' + idx);
+    if (ni) ni.value = auto;
+  }
+
+  // Bepaal duur
+  var tmp = new Audio();
+  tmp.src = url;
+  tmp.onloadedmetadata = (function(i, u){ return function() {
+    if (slots[i].url !== u) return; // inmiddels vervangen
+    var d = isFinite(this.duration) ? this.duration : null;
+    slots[i].dur = d;
+    var badge = document.getElementById('durbadge-' + i);
+    if (badge) {
+      badge.textContent = '⏱ Duur: ' + (d ? fmtSec(d) : 'onbekend');
+    } else {
+      var det = document.getElementById('sdet-' + i);
+      if (det) {
+        var db = document.createElement('div');
+        db.className = 'dur-badge';
+        db.id = 'durbadge-' + i;
+        db.textContent = '⏱ Duur: ' + (d ? fmtSec(d) : 'onbekend');
+        det.appendChild(db);
+      }
+    }
+  }; })(idx, url);
+
+  // Bestand label
+  var flbl = document.getElementById('flbl-' + idx);
+  if (flbl) flbl.textContent = '✓ ' + file.name;
+
+  // Voeg test knop toe als nog niet aanwezig
+  var acts = document.getElementById('sacts-' + idx);
+  if (acts && !document.getElementById('tbtn-' + idx)) {
+    var tb = document.createElement('button');
+    tb.className = 'sbtn';
+    tb.id = 'tbtn-' + idx;
+    tb.textContent = '▶ Test';
+    tb.onclick = (function(i){ return function(e){ e.stopPropagation(); testSlot(i); }; })(idx);
+    acts.insertBefore(tb, acts.firstChild);
+  }
+
+  refreshSlotName(idx);
+}
+
+function refreshSlotName(idx) {
+  var nm = document.getElementById('sname-' + idx);
+  if (!nm) return;
+  var label = slotLabel(idx);
+  nm.textContent = label || 'Leeg — klik om in te stellen';
+  nm.className = 'sname' + (label ? '' : ' empty');
+}
+
+function slotLabel(idx) {
+  var s = slots[idx];
+  if (s.name) return s.name;
+  if (s.file) return s.file.name.replace(/\.[^.]+$/, '');
+  return '';
+}
+
+function testSlot(idx) {
+  stopAudio();
+  var s = slots[idx];
+  if (!s.url) return;
+  curAudio = new Audio(s.url);
+  curAudio.play().catch(function(){});
+  setStatus('sing', '▶ Test: ' + (slotLabel(idx) || 'vogel ' + (idx+1)));
+  curAudio.onended = function() {
+    curAudio = null;
+    if (!running) setStatus('', 'Testklaar');
+  };
+}
+
+// ═══════════════════════════════
+//  CAMERA
+// ═══════════════════════════════
+function setCam(mode) {
+  facingMode = mode;
+  document.getElementById('cb-back').className  = 'tglbtn' + (mode === 'environment' ? ' on' : '');
+  document.getElementById('cb-front').className = 'tglbtn' + (mode === 'user'        ? ' on' : '');
+  document.getElementById('cam-badge').textContent = mode === 'user' ? '📷 Voor' : '📷 Achter';
+  if (running) { stopCamera(); startCamera(function(e){ if(e) { setStatus('','Camera fout: '+e.message); stopDetect(); } }); }
+}
+
+function toggleCam() { setCam(facingMode === 'user' ? 'environment' : 'user'); }
+
+function startCamera(cb) {
+  var c = { video: { facingMode: { ideal: facingMode }, width:{ideal:320}, height:{ideal:240} }, audio: false };
+  function ok(s) {
+    stream = s;
+    var v = document.getElementById('video');
+    v.srcObject = s;
+    v.style.transform = facingMode === 'user' ? 'scaleX(-1)' : 'none';
+    v.play();
+    if (cb) cb(null);
+  }
+  function fail(e) { if (cb) cb(e); }
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+    navigator.mediaDevices.getUserMedia(c).then(ok).catch(fail);
+  else if (navigator.getUserMedia)
+    navigator.getUserMedia(c, ok, fail);
+  else
+    fail(new Error('Camera niet beschikbaar'));
+}
+
+function stopCamera() {
+  if (stream) { (stream.getTracks ? stream.getTracks() : []).forEach(function(t){ t.stop(); }); stream = null; }
+  document.getElementById('video').srcObject = null;
+}
+
+// ═══════════════════════════════
+//  DETECTIELUS
+// ═══════════════════════════════
+function detectLoop() {
+  if (!running) return;
+  var vid = document.getElementById('video');
+  var cnv = document.getElementById('canvas');
+  if (vid.readyState < 2) { rafId = requestAnimationFrame(detectLoop); return; }
+
+  var W = 80, H = 60;
+  cnv.width = W; cnv.height = H;
+  var ctx = cnv.getContext('2d');
+  ctx.drawImage(vid, 0, 0, W, H);
+  var px = ctx.getImageData(0, 0, W, H).data;
+
+  var diff = 0;
+  if (prevPx) {
+    for (var i = 0, n = W*H*4; i < n; i+=4)
+      diff += (Math.abs(px[i]-prevPx[i]) + Math.abs(px[i+1]-prevPx[i+1]) + Math.abs(px[i+2]-prevPx[i+2])) / 3;
+    diff /= (W*H);
+  }
+  prevPx = new Uint8ClampedArray(px);
+
+  var thresh = parseInt(document.getElementById('rng-sens').value) * 0.55;
+  var motion = prevPx && diff > thresh;
+  document.getElementById('mring').className = 'motion-ring' + (motion ? ' active' : '');
+
+  if (motion && !singing && !inCooldown) startConcert();
+  rafId = requestAnimationFrame(detectLoop);
+}
+
+// ═══════════════════════════════
+//  CONCERT
+// ═══════════════════════════════
+function startConcert() {
+  var s = slots[selSlot];
+  if (!s.url) {
+    setStatus('motion', 'Beweging — geen MP3 in vogel ' + (selSlot+1));
+    return;
+  }
+
+  singing = true;
+  setRipple(true);
+  stopAudio();
+
+  curAudio = new Audio(s.url);
+  curAudio.volume = 1;
+
+  // Bepaal effectieve duur
+  if (durMode === 'mp3') {
+    // Volledige MP3
+    concertDurMs = s.dur ? s.dur * 1000 : 0;
+    curAudio.play().catch(function(){});
+    if (concertDurMs > 0) {
+      concertEnd = Date.now() + concertDurMs;
+      cTimer = setTimeout(endConcert, concertDurMs);
+    } else {
+      concertEnd = 0;
+      curAudio.onended = endConcert;
+    }
+  } else {
+    // Handmatig
+    var manualMs = parseInt(document.getElementById('rng-dur').value) * 1000;
+    if (s.dur && s.dur * 1000 <= manualMs) {
+      // Fragment korter dan ingestelde duur: speel volledige MP3
+      concertDurMs = s.dur * 1000;
+    } else {
+      concertDurMs = manualMs;
+    }
+    concertEnd = Date.now() + concertDurMs;
+    curAudio.play().catch(function(){});
+    cTimer = setTimeout(endConcert, concertDurMs);
+  }
+
+  var label = slotLabel(selSlot) || ('Vogel ' + (selSlot+1));
+  setStatus('sing', '🎵 ' + label + ' zingt…');
+  showProg(true);
+  tickProg();
+}
+
+function endConcert() {
+  stopAudio();
+  singing = false;
+  setRipple(false);
+  showProg(false);
+  if (cTimer) { clearTimeout(cTimer); cTimer = null; }
+  if (pTimer) { clearTimeout(pTimer); pTimer = null; }
+  startCooldown();
+}
+
+function startCooldown() {
+  inCooldown = true;
+  var coolMs = parseInt(document.getElementById('rng-cool').value) * 1000;
+  var end = Date.now() + coolMs;
+  function tick() {
+    if (!running) return;
+    var left = Math.ceil((end - Date.now()) / 1000);
+    if (left <= 0) { inCooldown = false; setStatus('watch', '👀 Wacht op beweging…'); return; }
+    setStatus('watch', '⏳ Wachttijd: nog ' + fmtSec(left));
+    setTimeout(tick, 500);
+  }
+  tick();
+}
+
+function stopAudio() {
+  if (curAudio) { curAudio.pause(); curAudio.onended = null; curAudio = null; }
+}
+
+// ═══════════════════════════════
+//  VOORTGANGSBALK
+// ═══════════════════════════════
+function showProg(on) {
+  document.getElementById('prog-wrap').className = 'prog-wrap' + (on ? ' vis' : '');
+  if (!on) document.getElementById('prog-fill').style.width = '0%';
+}
+
+function tickProg() {
+  if (!singing) return;
+  document.getElementById('prog-name').textContent = slotLabel(selSlot) || ('Vogel ' + (selSlot+1));
+  if (concertDurMs > 0 && concertEnd > 0) {
+    var elapsed = Date.now() - (concertEnd - concertDurMs);
+    var pct = Math.min(100, elapsed / concertDurMs * 100);
+    var left = Math.max(0, Math.ceil((concertEnd - Date.now()) / 1000));
+    document.getElementById('prog-fill').style.width = pct + '%';
+    document.getElementById('prog-time').textContent = fmtSec(left) + ' resterend';
+  } else {
+    // Onbekende duur: bouncing
+    var t = (Date.now() / 2200) % 1;
+    var b = t < 0.5 ? t*2 : (1-t)*2;
+    document.getElementById('prog-fill').style.width = (15 + b*75) + '%';
+    document.getElementById('prog-time').textContent = 'bezig…';
+  }
+  if (singing) pTimer = setTimeout(tickProg, 250);
+}
+
+// ═══════════════════════════════
+//  START / STOP
+// ═══════════════════════════════
+function toggleDetect() { running ? stopDetect() : startDetect(); }
+
+function startDetect() {
+  if (!slots[selSlot].url) {
+    setStatus('', 'Laad eerst een MP3 voor vogel ' + (selSlot+1));
+    return;
+  }
+  setStatus('', 'Camera starten…');
+  startCamera(function(err) {
+    if (err) { setStatus('', 'Camera fout: ' + (err.message || err)); return; }
+    running = true; prevPx = null; inCooldown = false;
+    var btn = document.getElementById('main-btn');
+    btn.textContent = 'Stop luisteren'; btn.className = 'stop';
+    setStatus('watch', '👀 Wacht op beweging…');
+    rafId = requestAnimationFrame(detectLoop);
+  });
+}
+
+function stopDetect() {
+  running = false; singing = false; inCooldown = false;
+  if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
+  if (cTimer) { clearTimeout(cTimer); cTimer = null; }
+  if (pTimer) { clearTimeout(pTimer); pTimer = null; }
+  stopAudio(); stopCamera(); setRipple(false); showProg(false);
+  document.getElementById('mring').className = 'motion-ring';
+  var btn = document.getElementById('main-btn');
+  btn.textContent = 'Begin met luisteren'; btn.className = 'start';
+  setStatus('', 'Gestopt');
+}
+
+window.onbeforeunload = function() { stopDetect(); };
+
+// ═══════════════════════════════
+//  DUUR MODUS
+// ═══════════════════════════════
+function setDurMode(m) {
+  durMode = m;
+  document.getElementById('dm-hand').className = 'tglbtn' + (m==='manual'?' on':'');
+  document.getElementById('dm-mp3').className  = 'tglbtn' + (m==='mp3'?' on':'');
+  document.getElementById('dur-slider').style.display = m==='manual'?'':'none';
+  document.getElementById('dur-note').style.display   = m==='mp3'?'':'none';
+  document.getElementById('lbl-dur').textContent      = m==='mp3'?'(MP3 duur)':fmtSec(document.getElementById('rng-dur').value);
+}
+
+// ═══════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════
+function setStatus(cls, txt) {
+  document.getElementById('sdot').className = 'sdot' + (cls?' '+cls:'');
+  document.getElementById('stxt').textContent = txt;
+}
+
+function setRipple(on) {
+  document.getElementById('ripple').className = 'ripple-wrap' + (on?' vis':'');
+}
+
+function updRange(el, lblId, isSec) {
+  var v = parseInt(el.value);
+  document.getElementById(lblId).textContent = isSec ? fmtSec(v) : v;
+  var pct = ((v-el.min)/(el.max-el.min)*100).toFixed(1)+'%';
+  el.style.background = 'linear-gradient(to right,var(--sage) '+pct+',var(--cream) '+pct+')';
+}
+
+function fmtSec(s) {
+  s = Math.round(s);
+  if (s < 60) return s + ' sec';
+  var m = Math.floor(s/60), r = s%60;
+  return m + ' min' + (r?' '+r+' sec':'');
+}
+</script>
+</body>
+</html>
