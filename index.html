@@ -404,6 +404,45 @@ footer {
   text-align: center; font-size: 0.62rem;
   color: var(--sand); letter-spacing: 1px; padding-top: 2px;
 }
+
+/* ── Verberg-modus knoppen ── */
+.hide-row {
+  display: flex; gap: 8px;
+}
+.hide-btn {
+  flex: 1; padding: 11px 8px;
+  border: 1px solid var(--border); border-radius: 12px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem; letter-spacing: 1px;
+  cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.hide-btn.wake {
+  background: rgba(155,188,204,0.15);
+  color: var(--sky-d); border-color: rgba(155,188,204,0.4);
+}
+.hide-btn.wake.on {
+  background: var(--sky); color: white; border-color: var(--sky-d);
+  box-shadow: 0 2px 10px rgba(155,188,204,.4);
+}
+.hide-btn.dim {
+  background: rgba(80,60,30,0.06);
+  color: var(--bark-l); border-color: var(--border);
+}
+
+/* Dim overlay */
+#dim-overlay {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: #000; opacity: 0; transition: opacity 0.6s; cursor: pointer;
+}
+#dim-overlay.vis { display: block; }
+#dim-overlay.dark { opacity: 0.97; }
+#dim-overlay::after {
+  content: 'Tik om scherm te tonen';
+  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,0.12); font-family: sans-serif;
+  font-size: 11px; letter-spacing: 1px; pointer-events: none;
+}
 </style>
 </head>
 <body>
@@ -518,8 +557,21 @@ footer {
   <!-- Start/Stop -->
   <button id="main-btn" class="start" onclick="toggleDetect()">Begin met luisteren</button>
 
+  <!-- Verberg-modus: WakeLock + Scherm dimmen -->
+  <div class="hide-row" id="hide-row" style="display:none">
+    <button class="hide-btn wake" id="wake-btn" onclick="toggleWake()">
+      ☀ Scherm aan houden
+    </button>
+    <button class="hide-btn dim" onclick="dimScreen()">
+      🌑 Scherm verbergen
+    </button>
+  </div>
+
   <footer>Volledig offline · geen internet vereist</footer>
 </div>
+
+<!-- Dim overlay: tik om terug te komen -->
+<div id="dim-overlay" onclick="undimScreen()"></div>
 
 <script>
 // ═══════════════════════════════
@@ -534,6 +586,7 @@ var concertDurMs = 0, concertEnd = 0;
 var cTimer = null, pTimer = null;
 var selSlot = 0;
 var curAudio = null;
+var audioUnlocked = false;
 
 // Slot data
 var slots = [];
@@ -542,13 +595,85 @@ for (var i = 0; i < MAXSLOTS; i++) {
 }
 
 // ═══════════════════════════════
+//  LOCALSTORAGE — opslaan/laden
+// ═══════════════════════════════
+function saveSettings() {
+  try {
+    localStorage.setItem('vogelmelder', JSON.stringify({
+      sens:       document.getElementById('rng-sens').value,
+      dur:        document.getElementById('rng-dur').value,
+      cool:       document.getElementById('rng-cool').value,
+      durMode:    durMode,
+      facingMode: facingMode,
+      selSlot:    selSlot,
+      slotNames:  slots.map(function(s){ return s.name; })
+    }));
+  } catch(e) {}
+}
+
+function loadSettings() {
+  try {
+    var raw = localStorage.getItem('vogelmelder');
+    if (!raw) return;
+    var d = JSON.parse(raw);
+    if (d.sens)  { var rs = document.getElementById('rng-sens'); rs.value = d.sens; updRange(rs,'lbl-sens',false); }
+    if (d.dur)   { var rd = document.getElementById('rng-dur');  rd.value = d.dur;  updRange(rd,'lbl-dur',true); }
+    if (d.cool)  { var rc = document.getElementById('rng-cool'); rc.value = d.cool; updRange(rc,'lbl-cool',true); }
+    if (d.durMode)    setDurMode(d.durMode);
+    if (d.facingMode) { facingMode = d.facingMode; }
+    if (typeof d.selSlot === 'number') selSlot = d.selSlot;
+    if (d.slotNames) {
+      for (var i = 0; i < MAXSLOTS && i < d.slotNames.length; i++)
+        slots[i].name = d.slotNames[i] || '';
+    }
+  } catch(e) {}
+}
+
+function hookAutosave() {
+  ['rng-sens','rng-dur','rng-cool'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', saveSettings);
+  });
+}
+
+// ═══════════════════════════════
+//  ANDROID AUDIO UNLOCK
+// ═══════════════════════════════
+// Android vereist dat audio gestart wordt vanuit een echte gebruikerstap.
+// Door bij de eerste tap een stille AudioContext te starten, ontgrendelen
+// we de audio engine — daarna werkt ook auto-triggered audio.
+function unlockAudio() {
+  if (audioUnlocked) return;
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var buf = ctx.createBuffer(1, 1, 22050);
+    var src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    setTimeout(function(){ ctx.close(); }, 500);
+    audioUnlocked = true;
+  } catch(e) {}
+}
+
+// ═══════════════════════════════
 //  INITIALISATIE
 // ═══════════════════════════════
 window.onload = function() {
+  loadSettings();
   buildAllSlots();
   updRange(document.getElementById('rng-sens'), 'lbl-sens', false);
   updRange(document.getElementById('rng-dur'),  'lbl-dur',  true);
   updRange(document.getElementById('rng-cool'), 'lbl-cool', true);
+  hookAutosave();
+
+  // Unlock audio bij eerste aanraking (cruciaal voor Android)
+  document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+  document.addEventListener('click',      unlockAudio, { once: true });
+
+  // Herinnering als er opgeslagen vogelnamen zijn maar nog geen MP3
+  var hasNames = slots.some(function(s){ return s.name; });
+  if (hasNames) setStatus('', '⚠ Instellingen hersteld — laad MP3\'s opnieuw');
 };
 
 // ═══════════════════════════════
@@ -657,6 +782,7 @@ function chooseSel(idx) {
   hiliteSlots();
   var label = slotLabel(idx);
   setStatus('', label ? 'Vogel geselecteerd: ' + label : 'Vogel ' + (idx+1) + ' geselecteerd (nog leeg)');
+  saveSettings();
 }
 
 function hiliteSlots() {
@@ -674,6 +800,7 @@ function hiliteSlots() {
 function onNameInput(idx, val) {
   slots[idx].name = val.trim();
   refreshSlotName(idx);
+  saveSettings();
 }
 
 function onFileChange(idx, input) {
@@ -750,11 +877,14 @@ function slotLabel(idx) {
 }
 
 function testSlot(idx) {
+  unlockAudio();
   stopAudio();
   var s = slots[idx];
   if (!s.url) return;
   curAudio = new Audio(s.url);
-  curAudio.play().catch(function(){});
+  curAudio.volume = 1;
+  var p = curAudio.play();
+  if (p && p.then) p.catch(function(){});
   setStatus('sing', '▶ Test: ' + (slotLabel(idx) || 'vogel ' + (idx+1)));
   curAudio.onended = function() {
     curAudio = null;
@@ -771,6 +901,7 @@ function setCam(mode) {
   document.getElementById('cb-front').className = 'tglbtn' + (mode === 'user'        ? ' on' : '');
   document.getElementById('cam-badge').textContent = mode === 'user' ? '📷 Voor' : '📷 Achter';
   if (running) { stopCamera(); startCamera(function(e){ if(e) { setStatus('','Camera fout: '+e.message); stopDetect(); } }); }
+  saveSettings();
 }
 
 function toggleCam() { setCam(facingMode === 'user' ? 'environment' : 'user'); }
@@ -846,31 +977,42 @@ function startConcert() {
 
   curAudio = new Audio(s.url);
   curAudio.volume = 1;
+  curAudio.preload = 'auto';
+
+  function doPlay(onReady) {
+    var p = curAudio.play();
+    if (p && p.then) {
+      p.then(onReady).catch(function(e) {
+        // Android weigerde — probeer opnieuw na kort moment
+        setTimeout(function() {
+          if (curAudio) curAudio.play().catch(function(){});
+          onReady();
+        }, 200);
+      });
+    } else {
+      onReady();
+    }
+  }
 
   // Bepaal effectieve duur
   if (durMode === 'mp3') {
-    // Volledige MP3
     concertDurMs = s.dur ? s.dur * 1000 : 0;
-    curAudio.play().catch(function(){});
-    if (concertDurMs > 0) {
-      concertEnd = Date.now() + concertDurMs;
-      cTimer = setTimeout(endConcert, concertDurMs);
-    } else {
-      concertEnd = 0;
-      curAudio.onended = endConcert;
-    }
+    doPlay(function() {
+      if (concertDurMs > 0) {
+        concertEnd = Date.now() + concertDurMs;
+        cTimer = setTimeout(endConcert, concertDurMs);
+      } else {
+        concertEnd = 0;
+        if (curAudio) curAudio.onended = endConcert;
+      }
+    });
   } else {
-    // Handmatig
     var manualMs = parseInt(document.getElementById('rng-dur').value) * 1000;
-    if (s.dur && s.dur * 1000 <= manualMs) {
-      // Fragment korter dan ingestelde duur: speel volledige MP3
-      concertDurMs = s.dur * 1000;
-    } else {
-      concertDurMs = manualMs;
-    }
+    concertDurMs = (s.dur && s.dur * 1000 <= manualMs) ? s.dur * 1000 : manualMs;
     concertEnd = Date.now() + concertDurMs;
-    curAudio.play().catch(function(){});
-    cTimer = setTimeout(endConcert, concertDurMs);
+    doPlay(function() {
+      cTimer = setTimeout(endConcert, concertDurMs);
+    });
   }
 
   var label = slotLabel(selSlot) || ('Vogel ' + (selSlot+1));
@@ -944,6 +1086,9 @@ function startDetect() {
     setStatus('', 'Laad eerst een MP3 voor vogel ' + (selSlot+1));
     return;
   }
+  // Unlock audio direct vanuit deze tap — cruciaal voor Android
+  unlockAudio();
+
   setStatus('', 'Camera starten…');
   startCamera(function(err) {
     if (err) { setStatus('', 'Camera fout: ' + (err.message || err)); return; }
@@ -951,6 +1096,9 @@ function startDetect() {
     var btn = document.getElementById('main-btn');
     btn.textContent = 'Stop luisteren'; btn.className = 'stop';
     setStatus('watch', '👀 Wacht op beweging…');
+    document.getElementById('hide-row').style.display = 'flex';
+    // Auto-vraag WakeLock bij starten
+    if (!wakeActive) requestWake();
     rafId = requestAnimationFrame(detectLoop);
   });
 }
@@ -964,10 +1112,115 @@ function stopDetect() {
   document.getElementById('mring').className = 'motion-ring';
   var btn = document.getElementById('main-btn');
   btn.textContent = 'Begin met luisteren'; btn.className = 'start';
+  document.getElementById('hide-row').style.display = 'none';
+  if (dimmed) undimScreen();
+  releaseWake();
   setStatus('', 'Gestopt');
 }
 
 window.onbeforeunload = function() { stopDetect(); };
+
+// ═══════════════════════════════
+//  WAKELOCK — scherm aan houden
+// ═══════════════════════════════
+var wakeLock = null;
+var wakeActive = false;
+
+function toggleWake() {
+  if (wakeActive) {
+    releaseWake();
+  } else {
+    requestWake();
+  }
+}
+
+function requestWake() {
+  if ('wakeLock' in navigator) {
+    navigator.wakeLock.request('screen').then(function(lock) {
+      wakeLock = lock;
+      wakeActive = true;
+      updateWakeBtn();
+      // Herverzoek als scherm weer actief wordt (bijv. na dim)
+      lock.addEventListener('release', function() {
+        wakeActive = false;
+        wakeLock = null;
+        updateWakeBtn();
+      });
+    }).catch(function() {
+      wakeActive = false;
+      updateWakeBtn();
+    });
+  } else {
+    // Fallback voor oudere Android: geen WakeLock API
+    // Speel elke 20s een stille audio — houdt scherm wakker
+    startSilentKeepAwake();
+    wakeActive = true;
+    updateWakeBtn();
+  }
+}
+
+function releaseWake() {
+  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+  stopSilentKeepAwake();
+  wakeActive = false;
+  updateWakeBtn();
+}
+
+function updateWakeBtn() {
+  var btn = document.getElementById('wake-btn');
+  if (!btn) return;
+  if (wakeActive) {
+    btn.className = 'hide-btn wake on';
+    btn.textContent = '☀ Scherm blijft aan';
+  } else {
+    btn.className = 'hide-btn wake';
+    btn.textContent = '☀ Scherm aan houden';
+  }
+}
+
+// Stille audio fallback voor browsers zonder WakeLock
+var silentTimer = null;
+function startSilentKeepAwake() {
+  stopSilentKeepAwake();
+  silentTimer = setInterval(function() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var buf = ctx.createBuffer(1, 1, 22050);
+      var src = ctx.createBufferSource();
+      src.buffer = buf; src.connect(ctx.destination); src.start(0);
+      setTimeout(function(){ ctx.close(); }, 500);
+    } catch(e) {}
+  }, 20000);
+}
+function stopSilentKeepAwake() {
+  if (silentTimer) { clearInterval(silentTimer); silentTimer = null; }
+}
+
+// Herverzoek WakeLock na dim (scherm was uit)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible' && wakeActive && !wakeLock) {
+    requestWake();
+  }
+});
+
+// ═══════════════════════════════
+//  SCHERM DIMMEN
+// ═══════════════════════════════
+var dimmed = false;
+
+function dimScreen() {
+  var ov = document.getElementById('dim-overlay');
+  ov.className = 'vis';
+  // Klein vertraging voor CSS transitie
+  setTimeout(function() { ov.className = 'vis dark'; }, 30);
+  dimmed = true;
+}
+
+function undimScreen() {
+  var ov = document.getElementById('dim-overlay');
+  ov.className = 'vis';
+  setTimeout(function() { ov.className = ''; dimmed = false; }, 600);
+}
 
 // ═══════════════════════════════
 //  DUUR MODUS
@@ -979,6 +1232,7 @@ function setDurMode(m) {
   document.getElementById('dur-slider').style.display = m==='manual'?'':'none';
   document.getElementById('dur-note').style.display   = m==='mp3'?'':'none';
   document.getElementById('lbl-dur').textContent      = m==='mp3'?'(MP3 duur)':fmtSec(document.getElementById('rng-dur').value);
+  saveSettings();
 }
 
 // ═══════════════════════════════
