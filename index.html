@@ -434,6 +434,71 @@ footer {
   cursor: not-allowed;
 }
 
+/* ── Galeriemodus ── */
+#gallery-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 998;
+  background: #000;
+  cursor: pointer;
+  overflow: hidden;
+}
+#gallery-overlay.vis { display: block; }
+
+#gallery-svg {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Dubbeltik hint — verdwijnt na 3 sec */
+#gallery-hint {
+  position: absolute;
+  bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.25);
+  font-family: sans-serif; font-size: 11px;
+  letter-spacing: 1px;
+  pointer-events: none;
+  transition: opacity 1s;
+}
+
+/* Schilderij-kiezer knoppen */
+.art-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 4px;
+}
+.art-btn {
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 4px;
+  background: var(--cream);
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--bark-l);
+  text-align: center;
+  font-family: 'Jost', sans-serif;
+  transition: all .18s;
+  line-height: 1.4;
+}
+.art-btn.sel {
+  border-color: var(--sage);
+  background: rgba(122,158,126,.15);
+  color: var(--sage-d);
+}
+.art-btn .art-icon { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+
+/* Galerij knop */
+.hide-btn.gallery {
+  background: rgba(100,80,40,0.08);
+  color: var(--bark-l); border-color: var(--border);
+}
+.hide-btn.gallery.on {
+  background: linear-gradient(135deg, #8a6030, #5a3a10);
+  color: white; border-color: #5a3a10;
+}
+
 /* Dim overlay */
 #dim-overlay {
   display: none; position: fixed; inset: 0; z-index: 999;
@@ -565,12 +630,30 @@ footer {
       Zet de telefoon onopvallend neer met Bluetooth speaker elders.
       Start eerst de detectie, dan worden deze knoppen actief.
     </div>
+
+    <div style="font-size:0.72rem;color:var(--sage-d);margin-bottom:6px;letter-spacing:1px">SCHILDERIJ KIEZEN</div>
+    <div class="art-grid" id="art-grid">
+      <button class="art-btn sel" id="art0" onclick="selectArt(0)">
+        <span class="art-icon">🌿</span>Botanisch
+      </button>
+      <button class="art-btn" id="art1" onclick="selectArt(1)">
+        <span class="art-icon">🌅</span>Landschap
+      </button>
+      <button class="art-btn" id="art2" onclick="selectArt(2)">
+        <span class="art-icon">🎨</span>Abstract
+      </button>
+    </div>
+    <div style="font-size:0.65rem;color:var(--bark-l);margin:6px 0 10px;text-align:center">Dubbeltik op schilderij om terug te keren</div>
+
     <div class="hide-row" id="hide-row">
       <button class="hide-btn wake" id="wake-btn" onclick="toggleWake()" disabled>
         ☀ Scherm aan houden
       </button>
       <button class="hide-btn dim" id="dim-btn" onclick="dimScreen()" disabled>
         🌑 Scherm verbergen
+      </button>
+      <button class="hide-btn gallery" id="gallery-btn" onclick="showGallery()" disabled>
+        🖼 Schilderij
       </button>
     </div>
   </div>
@@ -583,6 +666,15 @@ footer {
 
 <!-- Dim overlay: tik om terug te komen -->
 <div id="dim-overlay" onclick="undimScreen()"></div>
+
+<!-- Galerie overlay: volledig scherm schilderij -->
+<div id="gallery-overlay" ondblclick="hideGallery()">
+  <svg id="gallery-svg" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice"
+       xmlns="http://www.w3.org/2000/svg">
+    <!-- Wordt gevuld door JS -->
+  </svg>
+  <div id="gallery-hint">dubbeltik om terug te keren</div>
+</div>
 
 <script>
 // ═══════════════════════════════
@@ -681,6 +773,19 @@ window.onload = function() {
   // Unlock audio bij eerste aanraking (cruciaal voor Android)
   document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
   document.addEventListener('click',      unlockAudio, { once: true });
+
+  // Dubbeltik op gallery overlay om terug te keren
+  var lastTap = 0;
+  var gallOv = document.getElementById('gallery-overlay');
+  if (gallOv) {
+    gallOv.addEventListener('touchend', function() {
+      var now = Date.now();
+      if (now - lastTap < 350) hideGallery();
+      lastTap = now;
+    });
+    // Ook klik (desktop/test)
+    gallOv.addEventListener('dblclick', hideGallery);
+  }
 
   // Herinnering als er opgeslagen vogelnamen zijn maar nog geen MP3
   var hasNames = slots.some(function(s){ return s.name; });
@@ -1109,6 +1214,7 @@ function startDetect() {
     setStatus('watch', '👀 Wacht op beweging…');
     document.getElementById('wake-btn').disabled = false;
     document.getElementById('dim-btn').disabled = false;
+    document.getElementById('gallery-btn').disabled = false;
     // Auto-vraag WakeLock bij starten
     if (!wakeActive) requestWake();
     rafId = requestAnimationFrame(detectLoop);
@@ -1126,12 +1232,236 @@ function stopDetect() {
   btn.textContent = 'Begin met luisteren'; btn.className = 'start';
   document.getElementById('wake-btn').disabled = true;
   document.getElementById('dim-btn').disabled = true;
+  document.getElementById('gallery-btn').disabled = true;
+  if (galleryOpen) hideGallery();
   if (dimmed) undimScreen();
   releaseWake();
   setStatus('', 'Gestopt');
 }
 
 window.onbeforeunload = function() { stopDetect(); };
+// ═══════════════════════════════
+//  GALERIEMODUS — SVG SCHILDERIJEN
+// ═══════════════════════════════
+var selArt = 0;
+var galleryOpen = false;
+
+// Drie SVG schilderijen als strings
+var artworks = [
+
+// 0 — BOTANISCH: elegante takken, bloemen, vlinder
+`<rect width="400" height="700" fill="#f0ebe0"/>
+<rect width="400" height="700" fill="url(#pg)"/>
+<defs>
+  <radialGradient id="pg" cx="50%" cy="40%" r="70%">
+    <stop offset="0%" stop-color="#faf6ee"/>
+    <stop offset="100%" stop-color="#e8dfc8"/>
+  </radialGradient>
+</defs>
+<!-- Grote tak links -->
+<path d="M60 700 Q80 500 120 350 Q150 220 180 120" stroke="#5a3a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+<path d="M120 350 Q160 310 200 280" stroke="#5a3a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M140 430 Q100 390 70 360" stroke="#5a3a1a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+<path d="M160 280 Q220 240 260 200" stroke="#5a3a1a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+<!-- Bladeren -->
+<ellipse cx="205" cy="278" rx="28" ry="12" fill="#6a8a4a" opacity="0.8" transform="rotate(-30 205 278)"/>
+<ellipse cx="262" cy="198" rx="22" ry="9" fill="#7a9a5a" opacity="0.75" transform="rotate(-50 262 198)"/>
+<ellipse cx="98" cy="363" rx="20" ry="8" fill="#5a7a3a" opacity="0.7" transform="rotate(20 98 363)"/>
+<ellipse cx="175" cy="118" rx="18" ry="7" fill="#8aaa6a" opacity="0.75" transform="rotate(-70 175 118)"/>
+<ellipse cx="145" cy="432" rx="24" ry="9" fill="#6a8a4a" opacity="0.7" transform="rotate(15 145 432)"/>
+<!-- Kleine takjes -->
+<path d="M180 120 Q170 80 165 50" stroke="#5a3a1a" stroke-width="1.2" fill="none"/>
+<path d="M165 50 Q145 30 130 15" stroke="#5a3a1a" stroke-width="1" fill="none"/>
+<path d="M165 50 Q185 25 200 10" stroke="#5a3a1a" stroke-width="1" fill="none"/>
+<!-- Rozen -->
+<g transform="translate(130,15)">
+  <circle r="14" fill="#d4607a" opacity="0.9"/>
+  <circle r="9" fill="#e0788a"/>
+  <circle r="5" fill="#f0a0aa"/>
+  <circle r="2" fill="#fff" opacity="0.6"/>
+</g>
+<g transform="translate(200,10)">
+  <circle r="11" fill="#c05060" opacity="0.85"/>
+  <circle r="7" fill="#d87080"/>
+  <circle r="4" fill="#eeaab0"/>
+</g>
+<g transform="translate(260,200)">
+  <circle r="13" fill="#d4607a" opacity="0.8"/>
+  <circle r="8" fill="#e07888"/>
+  <circle r="4" fill="#f0a8b0"/>
+</g>
+<!-- Kleine bloempjes -->
+<g transform="translate(70,360)">
+  <circle r="6" fill="#e8c060"/>
+  <circle r="3" fill="#f8e080"/>
+</g>
+<g transform="translate(145,430)">
+  <circle r="5" fill="#e0a050"/>
+  <circle r="2.5" fill="#f8c870"/>
+</g>
+<!-- Vlinder -->
+<g transform="translate(300,320)">
+  <ellipse cx="-12" cy="-8" rx="18" ry="12" fill="#c87820" opacity="0.85" transform="rotate(-20 -12 -8)"/>
+  <ellipse cx="12" cy="-8" rx="18" ry="12" fill="#d08828" opacity="0.85" transform="rotate(20 12 -8)"/>
+  <ellipse cx="-8" cy="8" rx="12" ry="8" fill="#b06818" opacity="0.8" transform="rotate(-15 -8 8)"/>
+  <ellipse cx="8" cy="8" rx="12" ry="8" fill="#b86820" opacity="0.8" transform="rotate(15 8 8)"/>
+  <ellipse cx="0" cy="0" rx="3" ry="10" fill="#2a1a0a"/>
+  <line x1="0" y1="-10" x2="-15" y2="-22" stroke="#2a1a0a" stroke-width="0.8"/>
+  <line x1="0" y1="-10" x2="15" y2="-22" stroke="#2a1a0a" stroke-width="0.8"/>
+</g>
+<!-- Sierrand -->
+<rect x="20" y="20" width="360" height="660" fill="none" stroke="#8a6a3a" stroke-width="1.5" opacity="0.4" rx="4"/>
+<rect x="26" y="26" width="348" height="648" fill="none" stroke="#8a6a3a" stroke-width="0.5" opacity="0.25" rx="3"/>
+<!-- Titel -->
+<text x="200" y="670" text-anchor="middle" font-family="Georgia,serif" font-size="13" fill="#8a6a3a" opacity="0.6" font-style="italic">Botanische Studie</text>`,
+
+// 1 — LANDSCHAP: zonsondergang boven water met riet
+`<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#1a2a4a"/>
+    <stop offset="35%" stop-color="#c04820"/>
+    <stop offset="55%" stop-color="#e87830"/>
+    <stop offset="70%" stop-color="#f8c060"/>
+    <stop offset="100%" stop-color="#f0a840"/>
+  </linearGradient>
+  <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#e06028"/>
+    <stop offset="40%" stop-color="#c04820"/>
+    <stop offset="100%" stop-color="#1a1a2a"/>
+  </linearGradient>
+  <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#fff8d0"/>
+    <stop offset="40%" stop-color="#f8e060"/>
+    <stop offset="100%" stop-color="#f0a020" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect width="400" height="700" fill="url(#sky)"/>
+<!-- Zon -->
+<circle cx="200" cy="370" r="55" fill="url(#sun)" opacity="0.95"/>
+<circle cx="200" cy="370" r="38" fill="#fff8c0" opacity="0.9"/>
+<circle cx="200" cy="370" r="25" fill="#fffde0"/>
+<!-- Wolken -->
+<ellipse cx="80" cy="200" rx="60" ry="18" fill="#e87030" opacity="0.5"/>
+<ellipse cx="50" cy="190" rx="35" ry="14" fill="#d05020" opacity="0.4"/>
+<ellipse cx="320" cy="160" rx="70" ry="20" fill="#e06020" opacity="0.45"/>
+<ellipse cx="350" cy="150" rx="40" ry="15" fill="#c84010" opacity="0.35"/>
+<!-- Waterlijn -->
+<rect x="0" y="420" width="400" height="280" fill="url(#water)"/>
+<!-- Weerspiegeling zon -->
+<ellipse cx="200" cy="450" rx="30" ry="80" fill="#f8d060" opacity="0.35"/>
+<ellipse cx="200" cy="500" rx="20" ry="60" fill="#f8e080" opacity="0.25"/>
+<!-- Golfjes -->
+<path d="M0 440 Q50 435 100 440 Q150 445 200 440 Q250 435 300 440 Q350 445 400 440" stroke="#f8a030" stroke-width="0.8" fill="none" opacity="0.4"/>
+<path d="M0 460 Q60 455 120 460 Q180 465 240 460 Q300 455 360 460 Q380 463 400 460" stroke="#e08020" stroke-width="0.6" fill="none" opacity="0.3"/>
+<path d="M0 490 Q80 485 160 490 Q240 495 320 490 Q360 487 400 490" stroke="#c06010" stroke-width="0.5" fill="none" opacity="0.25"/>
+<!-- Silhouet bomen links -->
+<rect x="0" y="280" width="12" height="145" fill="#0a0a14"/>
+<ellipse cx="6" cy="270" rx="20" ry="35" fill="#0a0a14"/>
+<rect x="20" y="300" width="8" height="125" fill="#0a0a14"/>
+<ellipse cx="24" cy="290" rx="15" ry="28" fill="#0a0a14"/>
+<rect x="35" y="320" width="6" height="105" fill="#0a0a14"/>
+<ellipse cx="38" cy="312" rx="12" ry="22" fill="#0a0a14"/>
+<!-- Silhouet bomen rechts -->
+<rect x="388" y="290" width="12" height="135" fill="#0a0a14"/>
+<ellipse cx="394" cy="278" rx="22" ry="38" fill="#0a0a14"/>
+<rect x="370" y="310" width="8" height="115" fill="#0a0a14"/>
+<ellipse cx="374" cy="300" rx="16" ry="28" fill="#0a0a14"/>
+<!-- Rietstengels -->
+<line x1="55" y1="700" x2="60" y2="390" stroke="#1a0a04" stroke-width="2.5"/>
+<line x1="65" y1="700" x2="68" y2="400" stroke="#1a0a04" stroke-width="2"/>
+<line x1="75" y1="700" x2="72" y2="410" stroke="#1a0a04" stroke-width="2.2"/>
+<ellipse cx="60" cy="388" rx="5" ry="16" fill="#2a1004"/>
+<ellipse cx="68" cy="398" rx="4" ry="13" fill="#2a1004"/>
+<ellipse cx="72" cy="408" rx="4.5" ry="14" fill="#2a1004"/>
+<line x1="330" y1="700" x2="335" y2="395" stroke="#1a0a04" stroke-width="2.5"/>
+<line x1="342" y1="700" x2="345" y2="405" stroke="#1a0a04" stroke-width="2"/>
+<line x1="352" y1="700" x2="348" y2="415" stroke="#1a0a04" stroke-width="2.2"/>
+<ellipse cx="335" cy="393" rx="5" ry="16" fill="#2a1004"/>
+<ellipse cx="345" cy="403" rx="4" ry="13" fill="#2a1004"/>
+<ellipse cx="348" cy="413" rx="4.5" ry="14" fill="#2a1004"/>
+<!-- Vogel silhouetten -->
+<path d="M150 180 Q160 172 170 180" stroke="#0a0a14" stroke-width="1.5" fill="none"/>
+<path d="M190 160 Q202 151 214 160" stroke="#0a0a14" stroke-width="1.5" fill="none"/>
+<path d="M240 195 Q250 188 260 195" stroke="#0a0a14" stroke-width="1.2" fill="none"/>
+<!-- Titel -->
+<text x="200" y="685" text-anchor="middle" font-family="Georgia,serif" font-size="13" fill="#f8d080" opacity="0.5" font-style="italic">Gouden Avond</text>`,
+
+// 2 — ABSTRACT: warme organische vormen, Rothko-stijl
+`<defs>
+  <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#1a0a08"/>
+    <stop offset="100%" stop-color="#0a0808"/>
+  </linearGradient>
+  <filter id="blur1"><feGaussianBlur stdDeviation="18"/></filter>
+  <filter id="blur2"><feGaussianBlur stdDeviation="28"/></filter>
+  <filter id="blur3"><feGaussianBlur stdDeviation="12"/></filter>
+</defs>
+<rect width="400" height="700" fill="url(#bg2)"/>
+<!-- Grote kleurvlakken — Rothko-stijl met zachte randen -->
+<rect x="-20" y="60" width="440" height="200" fill="#8a2010" opacity="0.85" filter="url(#blur1)"/>
+<rect x="-20" y="60" width="440" height="200" fill="#c04020" opacity="0.6" filter="url(#blur2)"/>
+<rect x="20" y="90" width="360" height="140" fill="#e06030" opacity="0.4" filter="url(#blur1)"/>
+<rect x="-20" y="300" width="440" height="200" fill="#6a4010" opacity="0.9" filter="url(#blur1)"/>
+<rect x="-20" y="310" width="440" height="180" fill="#c08020" opacity="0.55" filter="url(#blur2)"/>
+<rect x="30" y="330" width="340" height="130" fill="#e0a030" opacity="0.35" filter="url(#blur1)"/>
+<rect x="-20" y="530" width="440" height="200" fill="#3a1808" opacity="0.95" filter="url(#blur1)"/>
+<rect x="-20" y="540" width="440" height="170" fill="#8a3010" opacity="0.5" filter="url(#blur2)"/>
+<!-- Lichtaccenten -->
+<ellipse cx="200" cy="160" rx="120" ry="60" fill="#f08040" opacity="0.15" filter="url(#blur1)"/>
+<ellipse cx="200" cy="400" rx="140" ry="70" fill="#f8c040" opacity="0.12" filter="url(#blur2)"/>
+<!-- Subtiele horizontale lijnen -->
+<rect x="0" y="258" width="400" height="3" fill="#0a0808" opacity="0.8"/>
+<rect x="0" y="500" width="400" height="3" fill="#0a0808" opacity="0.8"/>
+<rect x="0" y="255" width="400" height="1" fill="#e08030" opacity="0.15"/>
+<rect x="0" y="497" width="400" height="1" fill="#e09020" opacity="0.12"/>
+<!-- Randen/schaduwen -->
+<rect x="0" y="0" width="30" height="700" fill="#0a0808" opacity="0.5"/>
+<rect x="370" y="0" width="30" height="700" fill="#0a0808" opacity="0.5"/>
+<rect x="0" y="0" width="400" height="40" fill="#0a0808" opacity="0.6"/>
+<rect x="0" y="660" width="400" height="40" fill="#0a0808" opacity="0.6"/>
+<!-- Schilderijrand effect -->
+<rect x="0" y="0" width="400" height="700" fill="none" stroke="#2a1408" stroke-width="8" opacity="0.8"/>
+<!-- Titel (heel subtiel) -->
+<text x="200" y="688" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#c08040" opacity="0.3" font-style="italic">Warmte III</text>`
+
+];
+
+function selectArt(idx) {
+  selArt = idx;
+  for (var i = 0; i < 3; i++) {
+    var btn = document.getElementById('art' + i);
+    if (btn) btn.className = 'art-btn' + (i === idx ? ' sel' : '');
+  }
+}
+
+function showGallery() {
+  var ov = document.getElementById('gallery-overlay');
+  var svg = document.getElementById('gallery-svg');
+  svg.innerHTML = artworks[selArt];
+  ov.className = 'vis';
+  galleryOpen = true;
+
+  // Hint verdwijnt na 4 seconden
+  var hint = document.getElementById('gallery-hint');
+  if (hint) {
+    hint.style.opacity = '1';
+    setTimeout(function() { hint.style.opacity = '0'; }, 4000);
+  }
+
+  // Verberg systeembalk indien mogelijk (fullscreen)
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(function(){});
+  }
+}
+
+function hideGallery() {
+  document.getElementById('gallery-overlay').className = '';
+  galleryOpen = false;
+  if (document.exitFullscreen) document.exitFullscreen().catch(function(){});
+}
+
+// Dubbeltik detectie — wordt gekoppeld vanuit window.onload
+
 
 // ═══════════════════════════════
 //  WAKELOCK — scherm aan houden
