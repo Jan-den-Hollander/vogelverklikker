@@ -453,13 +453,17 @@ footer {
 /* Dubbeltik hint — verdwijnt na 3 sec */
 #gallery-hint {
   position: absolute;
-  bottom: 20px; left: 50%;
+  bottom: 28px; left: 50%;
   transform: translateX(-50%);
-  color: rgba(255,255,255,0.25);
-  font-family: sans-serif; font-size: 11px;
+  color: rgba(255,255,255,0.9);
+  font-family: sans-serif; font-size: 13px;
   letter-spacing: 1px;
   pointer-events: none;
-  transition: opacity 1s;
+  transition: opacity 1.5s;
+  background: rgba(0,0,0,0.35);
+  padding: 6px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
 }
 
 /* Schilderij-kiezer knoppen */
@@ -682,7 +686,7 @@ footer {
       </label>
       <img id="own-photo-preview" alt="preview">
     </div>
-    <div style="font-size:0.65rem;color:var(--bark-l);margin:6px 0 10px;text-align:center">Dubbeltik op schilderij om terug te keren</div>
+    <div style="font-size:0.65rem;color:var(--bark-l);margin:6px 0 10px;text-align:center">Tik op schilderij om terug te keren</div>
 
     <div class="hide-row" id="hide-row">
       <button class="hide-btn wake" id="wake-btn" onclick="toggleWake()" disabled>
@@ -707,12 +711,12 @@ footer {
 <div id="dim-overlay" onclick="undimScreen()"></div>
 
 <!-- Galerie overlay: volledig scherm schilderij -->
-<div id="gallery-overlay" ondblclick="hideGallery()">
+<div id="gallery-overlay">
   <svg id="gallery-svg" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice"
        xmlns="http://www.w3.org/2000/svg">
     <!-- Wordt gevuld door JS -->
   </svg>
-  <div id="gallery-hint">dubbeltik om terug te keren</div>
+  <div id="gallery-hint">tik om instellingen te tonen</div>
 </div>
 
 <script>
@@ -818,16 +822,14 @@ window.onload = function() {
   document.addEventListener('click',      unlockAudio, { once: true });
 
   // Dubbeltik op gallery overlay om terug te keren
-  var lastTap = 0;
   var gallOv = document.getElementById('gallery-overlay');
   if (gallOv) {
-    gallOv.addEventListener('touchend', function() {
-      var now = Date.now();
-      if (now - lastTap < 350) hideGallery();
-      lastTap = now;
+    // Enkele tik/tapping verbergt het schilderij en toont de app — zelfde gedrag als dim-overlay
+    gallOv.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      hideGallery();
     });
-    // Ook klik (desktop/test)
-    gallOv.addEventListener('dblclick', hideGallery);
+    gallOv.addEventListener('click', hideGallery);
   }
 
   // Herinnering als er opgeslagen vogelnamen zijn maar nog geen MP3
@@ -1513,7 +1515,7 @@ function showGallery() {
   var hint = document.getElementById('gallery-hint');
   if (hint) {
     hint.style.opacity = '1';
-    setTimeout(function() { hint.style.opacity = '0'; }, 4000);
+    setTimeout(function() { hint.style.opacity = '0'; }, 6000);
   }
 
   // Verberg systeembalk indien mogelijk (fullscreen)
