@@ -489,6 +489,22 @@ footer {
 }
 .art-btn .art-icon { font-size: 1.3rem; display: block; margin-bottom: 2px; }
 
+/* Eigen foto preview */
+#own-photo-wrap {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+#own-photo-wrap.vis { display: flex; }
+#own-photo-preview {
+  width: 100%; height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: none;
+}
+#own-photo-preview.vis { display: block; }
+
 /* Galerij knop */
 .hide-btn.gallery {
   background: rgba(100,80,40,0.08);
@@ -602,6 +618,18 @@ footer {
                oninput="updRange(this,'lbl-cool',true)">
       </div>
 
+      <!-- Bluetooth -->
+      <div class="slrow">
+        <div class="sllbl" style="margin-bottom:5px"><span>Geluid afspelen via</span></div>
+        <div class="toggle-row">
+          <button class="tglbtn on" id="bt-phone" onclick="setAudioOut('phone')">📱 Telefoon</button>
+          <button class="tglbtn"    id="bt-blue"  onclick="setAudioOut('bluetooth')">🔵 Bluetooth</button>
+        </div>
+        <div id="bt-note" class="info-note" style="display:none">
+          Verbind de Bluetooth speaker eerst via de telefooninstellingen, dan hier starten.
+        </div>
+      </div>
+
       <!-- Camera -->
       <div class="slrow">
         <div class="sllbl" style="margin-bottom:5px"><span>Camera</span></div>
@@ -632,7 +660,7 @@ footer {
     </div>
 
     <div style="font-size:0.72rem;color:var(--sage-d);margin-bottom:6px;letter-spacing:1px">SCHILDERIJ KIEZEN</div>
-    <div class="art-grid" id="art-grid">
+    <div class="art-grid" id="art-grid" style="grid-template-columns:repeat(4,1fr)">
       <button class="art-btn sel" id="art0" onclick="selectArt(0)">
         <span class="art-icon">🌿</span>Botanisch
       </button>
@@ -642,6 +670,17 @@ footer {
       <button class="art-btn" id="art2" onclick="selectArt(2)">
         <span class="art-icon">🎨</span>Abstract
       </button>
+      <button class="art-btn" id="art3" onclick="selectArt(3)">
+        <span class="art-icon">🖼</span>Eigen foto
+      </button>
+    </div>
+    <!-- Eigen foto laden -->
+    <div id="own-photo-wrap">
+      <label class="file-lbl" style="margin-top:4px">
+        📷 <span id="own-photo-lbl">Kies foto van telefoon…</span>
+        <input type="file" accept="image/*" onchange="loadOwnPhoto(this)">
+      </label>
+      <img id="own-photo-preview" alt="preview">
     </div>
     <div style="font-size:0.65rem;color:var(--bark-l);margin:6px 0 10px;text-align:center">Dubbeltik op schilderij om terug te keren</div>
 
@@ -709,7 +748,9 @@ function saveSettings() {
       durMode:    durMode,
       facingMode: facingMode,
       selSlot:    selSlot,
-      slotNames:  slots.map(function(s){ return s.name; })
+      slotNames:  slots.map(function(s){ return s.name; }),
+      audioOut:   audioOut,
+      selArt:     selArt
     }));
   } catch(e) {}
 }
@@ -729,6 +770,8 @@ function loadSettings() {
       for (var i = 0; i < MAXSLOTS && i < d.slotNames.length; i++)
         slots[i].name = d.slotNames[i] || '';
     }
+    if (d.audioOut) { audioOut = d.audioOut; }
+    if (typeof d.selArt === 'number') { selArt = d.selArt; }
   } catch(e) {}
 }
 
@@ -1428,16 +1471,41 @@ var artworks = [
 
 function selectArt(idx) {
   selArt = idx;
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < 4; i++) {
     var btn = document.getElementById('art' + i);
     if (btn) btn.className = 'art-btn' + (i === idx ? ' sel' : '');
   }
+  // Toon/verberg eigen foto sectie
+  var wrap = document.getElementById('own-photo-wrap');
+  if (wrap) wrap.className = idx === 3 ? 'vis' : '';
 }
 
 function showGallery() {
   var ov = document.getElementById('gallery-overlay');
   var svg = document.getElementById('gallery-svg');
-  svg.innerHTML = artworks[selArt];
+
+  if (selArt === 3) {
+    // Eigen foto
+    if (!ownPhotoUrl) {
+      setStatus('', 'Kies eerst een foto via "Eigen foto"');
+      return;
+    }
+    svg.innerHTML = '';
+    // Verwijder eventuele oude img
+    var oldImg = document.getElementById('gallery-own-img');
+    if (oldImg) oldImg.remove();
+    var img = document.createElement('img');
+    img.id = 'gallery-own-img';
+    img.src = ownPhotoUrl;
+    img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block';
+    ov.appendChild(img);
+  } else {
+    // SVG schilderij
+    var oldImg2 = document.getElementById('gallery-own-img');
+    if (oldImg2) oldImg2.remove();
+    svg.innerHTML = artworks[selArt];
+  }
+
   ov.className = 'vis';
   galleryOpen = true;
 
@@ -1458,6 +1526,37 @@ function hideGallery() {
   document.getElementById('gallery-overlay').className = '';
   galleryOpen = false;
   if (document.exitFullscreen) document.exitFullscreen().catch(function(){});
+}
+
+// ═══════════════════════════════
+//  BLUETOOTH / AUDIO UITVOER
+// ═══════════════════════════════
+var audioOut = 'phone'; // 'phone' | 'bluetooth'
+
+function setAudioOut(mode) {
+  audioOut = mode;
+  document.getElementById('bt-phone').className = 'tglbtn' + (mode==='phone'?' on':'');
+  document.getElementById('bt-blue').className  = 'tglbtn' + (mode==='bluetooth'?' on':'');
+  document.getElementById('bt-note').style.display = mode==='bluetooth' ? '' : 'none';
+  saveSettings();
+}
+
+// ═══════════════════════════════
+//  EIGEN FOTO
+// ═══════════════════════════════
+var ownPhotoUrl = null;
+
+function loadOwnPhoto(input) {
+  var file = input.files[0];
+  if (!file) return;
+  if (ownPhotoUrl) URL.revokeObjectURL(ownPhotoUrl);
+  ownPhotoUrl = URL.createObjectURL(file);
+  var prev = document.getElementById('own-photo-preview');
+  prev.src = ownPhotoUrl;
+  prev.className = 'vis';
+  document.getElementById('own-photo-lbl').textContent = '✓ ' + file.name;
+  // Selecteer automatisch eigen foto
+  selectArt(3);
 }
 
 // Dubbeltik detectie — wordt gekoppeld vanuit window.onload
