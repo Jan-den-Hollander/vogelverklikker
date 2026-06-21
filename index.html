@@ -13,6 +13,34 @@
 
   Contact: jandenhollander@duck.com 
 ================================================================================
+LICENTIE / LICENSE (NL | EN | IT)
+  ──────────────────────────────────────────────────────────────────────────────
+  NL: Dit werk is auteursrechtelijk beschermd. Het mag vrij worden gebruikt,
+  gedeeld en verspreid, uitsluitend voor niet-commerciële doeleinden en
+  uitsluitend in ongewijzigde vorm, met vermelding van de oorspronkelijke
+  auteur. Commercieel gebruik, wijziging, verkoop of integratie in betaalde
+  producten of diensten is uitdrukkelijk verboden zonder schriftelijke
+  toestemming van de auteur. Hulp is en blijft gratis.
+
+  EN: This work is protected by copyright. It may be freely used, shared and
+  distributed for non-commercial purposes only, in unmodified form, with
+  attribution to the original author. Commercial use, modification, sale or
+  integration into paid products or services is strictly prohibited without
+  prior written consent of the author. Help is and remains free.
+
+  IT: Quest'opera è protetta da diritto d'autore. Può essere liberamente
+  utilizzata, condivisa e distribuita esclusivamente per scopi non commerciali,
+  nella sua forma originale e non modificata, con attribuzione all'autore
+  originale. L'uso commerciale, la modifica, la vendita o l'integrazione in
+  prodotti o servizi a pagamento sono espressamente vietati senza il consenso
+  scritto dell'autore. L'aiuto è e rimane gratuito.
+
+  Originele broncode / Original source / Fonte originale:
+  https://github.com/Jan-den-Hollander
+
+  Alle rechten voorbehouden / All rights reserved / Tutti i diritti riservati
+  © Jan den Hollander
+================================================================================
 -->
 <!DOCTYPE html>
 <html lang="nl">
@@ -1721,5 +1749,185 @@ function fmtSec(s) {
   return m + ' min' + (r?' '+r+' sec':'');
 }
 </script>
+
+<!-- ① ZICHTBARE FOOTER -->
+<div id="jdh-copyright-footer" style="
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.82);
+  color: #ccc;
+  font-size: 11px;
+  text-align: center;
+  padding: 4px 8px;
+  z-index: 99999;
+  font-family: sans-serif;
+  letter-spacing: 0.3px;
+  user-select: none;
+">
+  © <span id="jdh-year"></span> Jan den Hollander &nbsp;|&nbsp;
+  <span id="jdh-project-title" style="color:#7eb8f7"></span> &nbsp;|&nbsp;
+  Vrij gebruik · niet-commercieel · ongewijzigd &nbsp;|&nbsp;
+  <span style="color:#aaa; cursor:pointer; text-decoration:underline"
+        onclick="document.getElementById('jdh-modal').style.display='flex'">
+    ℹ️ Licentie
+  </span>
+</div>
+
+<!-- ② LICENTIE MODAL -->
+<div id="jdh-modal" style="
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,0.7);
+  z-index:999999;
+  align-items:center; justify-content:center;
+">
+  <div style="
+    background:#1a1a2e; color:#e0e0e0;
+    border:1px solid #444; border-radius:10px;
+    max-width:480px; width:90%; padding:24px;
+    font-family:sans-serif; font-size:13px; line-height:1.6;
+  ">
+    <h3 style="color:#7eb8f7; margin-top:0">
+      © Jan den Hollander &nbsp;·&nbsp;
+      <span id="jdh-modal-title" style="font-weight:normal;font-size:12px"></span>
+    </h3>
+    <p>Dit hulpmiddel is <strong>gratis</strong> en mag vrij worden gedeeld,
+    uitsluitend <strong>ongewijzigd</strong> en voor
+    <strong>niet-commerciële</strong> doeleinden, met bronvermelding.</p>
+    <p>Commercieel gebruik, wijziging of verkoop is <strong>verboden</strong>
+    zonder schriftelijke toestemming. Het gebruik van naam of projecttitel
+    impliceert geen toestemming en vormt bij commercieel gebruik een
+    zelfstandige auteursrechtinbreuk.</p>
+    <p style="color:#aaa;font-size:11px">
+      This tool is free and may be shared freely, unmodified, for non-commercial
+      purposes only, with attribution. Commercial use, modification or sale is
+      prohibited. Use of the name or project title does not imply consent and
+      constitutes an independent copyright infringement in commercial contexts.<br><br>
+      Quest'opera è gratuita e può essere condivisa liberamente, senza modifiche,
+      per scopi non commerciali, con attribuzione. L'uso commerciale è vietato.
+    </p>
+    <p style="margin-bottom:4px">
+      📧 <a href="mailto:jandenhollander@duck.com"
+            style="color:#7eb8f7">jandenhollander@duck.com</a>
+    </p>
+    <p style="margin-top:4px;margin-bottom:0">
+      🔗 Broncode / Source:
+      <a href="https://github.com/Jan-den-Hollander"
+         target="_blank" style="color:#7eb8f7">github.com/Jan-den-Hollander</a>
+    </p>
+    <button onclick="document.getElementById('jdh-modal').style.display='none'"
+            style="
+              margin-top:16px; padding:8px 20px;
+              background:#7eb8f7; color:#000;
+              border:none; border-radius:6px;
+              cursor:pointer; font-weight:bold;
+            ">Sluiten</button>
+  </div>
+</div>
+
+<!-- ③ INTEGRITEITSCHECK -->
+<script>
+(function() {
+  'use strict';
+  var projectName = document.title || 'Onbekend project';
+  var yearEl = document.getElementById('jdh-year');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+  var titleEl = document.getElementById('jdh-project-title');
+  if (titleEl) titleEl.textContent = projectName;
+  var modalTitleEl = document.getElementById('jdh-modal-title');
+  if (modalTitleEl) modalTitleEl.textContent = projectName;
+
+  function blockApp() {
+    document.body.innerHTML = '';
+    document.body.style.cssText =
+      'margin:0;background:#111;display:flex;align-items:center;' +
+      'justify-content:center;height:100vh;font-family:sans-serif;';
+    document.body.innerHTML =
+      '<div style="text-align:center;color:#e55;max-width:440px;padding:24px">' +
+      '<div style="font-size:52px">⛔</div>' +
+      '<h2 style="color:#e55;margin:12px 0 8px">Toegang geblokkeerd</h2>' +
+      '<p style="color:#ddd;font-size:14px">De copyright-informatie van ' +
+      '<strong style="color:#7eb8f7">' + projectName + '</strong> ' +
+      'is verwijderd of gewijzigd.</p>' +
+      '<p style="color:#aaa;font-size:12px">The copyright information of ' +
+      'this application has been removed or modified.<br>' +
+      'La sezione copyright di questa applicazione è stata rimossa o modificata.</p>' +
+      '<hr style="border-color:#333;margin:16px 0">' +
+      '<p style="color:#ccc;font-size:13px">Originele auteur / Original author:</p>' +
+      '<p style="margin:4px 0;font-size:14px">© Jan den Hollander</p>' +
+      '<p style="margin:4px 0">' +
+      '<a href="mailto:jandenhollander@duck.com" ' +
+      'style="color:#7eb8f7;font-size:12px">jandenhollander@duck.com</a></p>' +
+      '<p style="margin:8px 0">' +
+      '<a href="https://github.com/Jan-den-Hollander" target="_blank" ' +
+      'style="color:#7eb8f7;font-size:12px">🔗 github.com/Jan-den-Hollander</a></p>' +
+      '</div>';
+  }
+
+  // ── URL-check: toegestane domeinen voor Storie della Buonanotte ─────
+  var ALLOWED_BN = [
+    'localhost',
+    '127.0.0.1',
+    'jan-den-hollander.github.io',
+    'buonanotte.vercel.app',
+    'buonanotte',
+    'claude.ai',
+    'stackblitz.io',
+    'stackblitz.com'
+  ];
+
+  function domainAllowed() {
+    var host = window.location.hostname.toLowerCase();
+    if (window.location.protocol === 'file:') return true;
+    if (!host || host === '') return true;
+    return ALLOWED_BN.some(function(a) {
+      return host === a || host.endsWith('.' + a) || host.indexOf(a) !== -1;
+    });
+  }
+
+  function warnDomain() {
+    var banner = document.createElement('div');
+    banner.id = 'jdh-domain-warning';
+    banner.style.cssText =
+      'position:fixed;top:0;left:0;right:0;z-index:99998;' +
+      'background:#8a2010;color:#fff;font-family:sans-serif;' +
+      'font-size:12px;text-align:center;padding:8px 12px;line-height:1.5;';
+    banner.innerHTML =
+      '⚠️ <strong>' + projectName + '</strong> draait op een niet-erkend domein ' +
+      '(<em>' + window.location.hostname + '</em>). ' +
+      'Origineel: <a href="https://github.com/Jan-den-Hollander" ' +
+      'target="_blank" style="color:#ffccaa">github.com/Jan-den-Hollander</a> · ' +
+      '<a href="mailto:jandenhollander@duck.com" style="color:#ffccaa">' +
+      'jandenhollander@duck.com</a>';
+    document.body.insertBefore(banner, document.body.firstChild);
+  }
+
+  if (!domainAllowed()) { setTimeout(warnDomain, 800); }
+
+  function checkIntegrity() {
+    var footer = document.getElementById('jdh-copyright-footer');
+    var modal  = document.getElementById('jdh-modal');
+    if (!footer || !modal) { blockApp(); return; }
+    var fs = window.getComputedStyle(footer);
+    if (fs.display === 'none' || fs.visibility === 'hidden' || fs.opacity === '0') {
+      footer.style.cssText += ';display:block!important;visibility:visible!important;opacity:1!important';
+    }
+  }
+
+  checkIntegrity();
+  setInterval(checkIntegrity, 3000);
+
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.removedNodes.forEach(function(node) {
+        if (node.id === 'jdh-copyright-footer' || node.id === 'jdh-modal') {
+          blockApp();
+        }
+      });
+    });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
+</script>
+  
 </body>
 </html>
